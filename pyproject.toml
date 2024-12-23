@@ -8,4 +8,9 @@ dependencies = [
     "django-allauth>=65.3.0",
     "django~=5.1",
     "environs[django]>=11.2.1",
+    "pytest-django>=4.9.0",
 ]
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
