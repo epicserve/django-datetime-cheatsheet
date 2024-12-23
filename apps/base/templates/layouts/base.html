@@ -181,6 +181,7 @@
         <strong>{{ request.user.username }}</strong>
       </a>
       <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+          <li><a class="dropdown-item" href="{% url "admin:index" %}">Administration</a></li>
         <li><a class="dropdown-item" href="{% url "account_logout" %}">Sign out</a></li>
       </ul>
     </div>
@@ -194,4 +195,13 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="{% static 'sidebar.js' %}"></script></body>
+<script src="{% static 'timezone-detector.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const userTimezone = "{{ request.user.timezone }}";
+    const csrfMiddlewareToken = "{{ csrf_token }}";
+    const updateUrl = "{% url 'update_timezone' %}";
+    new TimezoneDetector(userTimezone, csrfMiddlewareToken, updateUrl);
+  });
+</script>
 </html>

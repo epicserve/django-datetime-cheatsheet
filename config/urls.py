@@ -18,10 +18,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
-from apps.base.views import IndexView
+from apps.base.views import IndexView, UpdateTimezoneView
 
 urlpatterns = [
     path("", IndexView.as_view(), name="index"),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
+    path(
+        "accounts/user/update-timezone/",
+        UpdateTimezoneView.as_view(),
+        name="update_timezone",
+    ),
 ]
