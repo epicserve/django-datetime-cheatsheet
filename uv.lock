@@ -47,6 +47,16 @@ wheels = [
 ]
 
 [[package]]
+name = "django-allauth"
+version = "65.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asgiref" },
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/72/ea/2362fa2566c43f2075e6c178970593d0b5aad63a98d351b0bc474942a7bd/django_allauth-65.3.0.tar.gz", hash = "sha256:92e0242724af03458b05b88c5fa798b01112ab22a86d873a8a9fd8f0ec57bbbf", size = 1546784 }
+
+[[package]]
 name = "django-cache-url"
 version = "3.4.5"
 source = { registry = "https://pypi.org/simple" }
@@ -61,12 +71,14 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "django" },
+    { name = "django-allauth" },
     { name = "environs", extra = ["django"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "django", specifier = "~=5.1" },
+    { name = "django-allauth", specifier = ">=65.3.0" },
     { name = "environs", extras = ["django"], specifier = ">=11.2.1" },
 ]
 
