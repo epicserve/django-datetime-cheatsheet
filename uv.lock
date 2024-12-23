@@ -82,6 +82,7 @@ dependencies = [
     { name = "django" },
     { name = "django-allauth" },
     { name = "environs", extra = ["django"] },
+    { name = "model-bakery" },
     { name = "pytest-django" },
 ]
 
@@ -90,6 +91,7 @@ requires-dist = [
     { name = "django", specifier = "~=5.1" },
     { name = "django-allauth", specifier = ">=65.3.0" },
     { name = "environs", extras = ["django"], specifier = ">=11.2.1" },
+    { name = "model-bakery", specifier = ">=1.20.0" },
     { name = "pytest-django", specifier = ">=4.9.0" },
 ]
 
@@ -132,6 +134,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/0f/33b98679f185f5ce58620595b32d4cf8e2fa5fb56d41eb463826558265c6/marshmallow-3.23.2.tar.gz", hash = "sha256:c448ac6455ca4d794773f00bae22c2f351d62d739929f761dce5eacb5c468d7f", size = 176929 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/38/8d37b19f6c882482cae7ba8db6d02fce3cba7b3895c93fc80352b30a18f5/marshmallow-3.23.2-py3-none-any.whl", hash = "sha256:bcaf2d6fd74fb1459f8450e85d994997ad3e70036452cbfa4ab685acb19479b3", size = 49326 },
+]
+
+[[package]]
+name = "model-bakery"
+version = "1.20.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/31/2d/9f61b529c788b367a6bac5b211bf8879036b4bcb27a5e9e78808131ea6fb/model_bakery-1.20.0.tar.gz", hash = "sha256:ec9dc846b9a00b20f92df38fac310263323ab61b59b6eeebf77a4aefb0412724", size = 21016 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/60/f0/c6a6c8ac6fd1dd3c0241ac69230af6592e573d3dedc2ff95b22a352c10f2/model_bakery-1.20.0-py3-none-any.whl", hash = "sha256:875326466f5982ee8f0281abdfa774d78893d5473562575dfd5a9304ac7c5b8c", size = 24019 },
 ]
 
 [[package]]
