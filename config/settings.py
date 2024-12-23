@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "allauth",
     "allauth.account",
+    "apps.base",
     "apps.accounts",
 ]
 
@@ -122,7 +123,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+PUBLIC_ROOT = BASE_DIR.joinpath("public")
+STATIC_ROOT = BASE_DIR.joinpath("collected_static")
+MEDIA_ROOT = PUBLIC_ROOT.joinpath("media")
+PUBLIC_STATIC = PUBLIC_ROOT.joinpath("static")
+STATICFILES_DIRS = [str(PUBLIC_STATIC)]
+MEDIA_URL = "/public/media/"
+STATIC_URL = "/public/static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
