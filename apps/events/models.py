@@ -1,4 +1,7 @@
+from zoneinfo import ZoneInfo
+
 from django.db import models
+from django.utils import timezone
 
 from apps.base.model_fields import TimeZoneField
 
@@ -11,3 +14,9 @@ class Event(models.Model):
 
     def __str__(self):
         return self.name
+
+    def display_start_time(self):
+        return timezone.make_naive(self.start_time, ZoneInfo(self.timezone))
+
+    def display_end_time(self):
+        return timezone.make_naive(self.end_time, ZoneInfo(self.timezone))
