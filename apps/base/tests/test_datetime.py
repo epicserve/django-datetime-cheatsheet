@@ -45,12 +45,12 @@ class TestDateTime(TestCase):
         assert local_dt.tzinfo == ZoneInfo("America/Chicago")
 
         # Convert another local datetime to a different timezone
-        mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("US/Mountain"))
-        assert mountain_datetime.tzinfo == ZoneInfo("US/Mountain")
+        mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("America/Denver"))
+        assert mountain_datetime.tzinfo == ZoneInfo("America/Denver")
 
         # Avoid bugs with dates by using Django's localdate function
         # 6 p.m. on January 1st in the local timezone is 12 a.m. on January 2nd in UTC
-        local_dt = datetime(2024, 1, 1, 18, 0, tzinfo=ZoneInfo("US/Central"))
+        local_dt = datetime(2024, 1, 1, 18, 0, tzinfo=ZoneInfo("America/Chicago"))
         utc_dt_next_day = dj_tz.localtime(local_dt, timezone=utc)
         assert utc_dt_next_day.date() != date(2024, 1, 1)
         assert utc_dt_next_day.date() == date(2024, 1, 2)
@@ -64,13 +64,13 @@ class TestDateTime(TestCase):
         jobs that send emails because I bet we forget to set the timezone in the job to the user's timezone.
         """
         assert dj_tz.get_current_timezone_name() == "America/Chicago"
-        dj_tz.activate(ZoneInfo("US/Eastern"))
-        assert dj_tz.get_current_timezone_name() == "US/Eastern"
+        dj_tz.activate(ZoneInfo("America/New_York"))
+        assert dj_tz.get_current_timezone_name() == "America/New_York"
         dj_tz.deactivate()  # Reset the active timezone
         assert dj_tz.get_current_timezone_name() == "America/Chicago"
 
         # Use override to temporarily save a model's datetime in a different timezone
-        with dj_tz.override(ZoneInfo("US/Pacific")):
+        with dj_tz.override(ZoneInfo("America/Los_Angeles")):
             event_start_time = dj_tz.make_aware(datetime(2024, 1, 1, 22, 30))
             event_end_time = event_start_time + timedelta(hours=1)
             event = baker.make("events.Event")
@@ -80,7 +80,7 @@ class TestDateTime(TestCase):
 
         event.refresh_from_db()
         assert (
-            dj_tz.localtime(event.start_time, ZoneInfo("US/Pacific"))
+            dj_tz.localtime(event.start_time, ZoneInfo("America/Los_Angeles"))
             == event_start_time
         )
 
@@ -225,7 +225,7 @@ class TestDateTime(TestCase):
         assert "new Date('2024-01-01T18:00:00-06:00')" in result
 
         # Render a datetime object that has a different timezone than the active timezone
-        pt_dt = dj_tz.localtime(utc_dt, ZoneInfo("US/Pacific"))
+        pt_dt = dj_tz.localtime(utc_dt, ZoneInfo("America/Los_Angeles"))
         assert pt_dt.strftime("%Y-%m-%d %-I:%M %p") == "2024-01-01 4:00 PM"
         assert dj_tz.get_current_timezone_name() == "America/Chicago"
         result = self.render_str_template("{{ pt_dt }}", {"pt_dt": pt_dt})
@@ -233,23 +233,23 @@ class TestDateTime(TestCase):
 
         # Render a datetime object in a different timezone using the timezone template tag
         result = self.render_str_template(
-            '{% load tz %}{% timezone "US/Pacific" %}{{ pt_dt }}{% endtimezone %}',
+            '{% load tz %}{% timezone "America/Los_Angeles" %}{{ pt_dt }}{% endtimezone %}',
             {"pt_dt": pt_dt},
         )
         assert "Jan. 1, 2024, 4 p.m." in result
 
         # Render a datetime object in a different timezone using the localtime template tag.
 
-        p_dt = datetime(2024, 1, 1, 13, 30, tzinfo=ZoneInfo("US/Pacific"))
+        p_dt = datetime(2024, 1, 1, 13, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
         event = baker.make(
             "events.event",
             start_time=p_dt,
             end_time=p_dt + timedelta(hours=1),
-            timezone="US/Pacific",
+            timezone="America/Los_Angeles",
         )
         event.refresh_from_db()
         assert event.start_time.tzinfo == utc
-        assert p_dt.tzinfo == ZoneInfo("US/Pacific")
+        assert p_dt.tzinfo == ZoneInfo("America/Los_Angeles")
 
         result = self.render_str_template(
             "{{ event.display_start_time }}", {"event": event}
