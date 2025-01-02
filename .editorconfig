@@ -1,0 +1,22 @@
+# EditorConfig: http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+
+# 4 space indentation
+[*.py]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+# 2 space indentation
+[{*.js,*.scss,*.css,*.html}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = true
