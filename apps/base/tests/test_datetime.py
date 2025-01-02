@@ -45,7 +45,9 @@ class TestDateTime(TestCase):
         assert local_dt.tzinfo == ZoneInfo("America/Chicago")
 
         # Convert another local datetime to a different timezone
-        mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("America/Denver"))
+        mountain_datetime = dj_tz.localtime(
+            local_dt, timezone=ZoneInfo("America/Denver")
+        )
         assert mountain_datetime.tzinfo == ZoneInfo("America/Denver")
 
         # Avoid bugs with dates by using Django's localdate function
