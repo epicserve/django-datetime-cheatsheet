@@ -108,7 +108,7 @@ if __name__ == "__main__":
     env_file_content = (
         "DEBUG=on\n"
         f"SECRET_KEY={get_random_string(50)}\n"
-        "ALLOWED_HOSTS=127.0.0.1,0.0.0.0\n"
+        "ALLOWED_HOSTS=127.0.0.1,0.0.0.0,localhost\n"
         "DATABASE_URL=sqlite:///db.sqlite3?transaction_mode=IMMEDIATE&init_command=PRAGMA+journal_mode+%3D+WAL%3BPRAGMA+synchronous+%3D+NORMAL%3BPRAGMA+mmap_size+%3D+134217728%3BPRAGMA+journal_size_limit+%3D+27103364%3BPRAGMA+cache_size+%3D+2000\n"
     )
     env_file.write_text(env_file_content)
