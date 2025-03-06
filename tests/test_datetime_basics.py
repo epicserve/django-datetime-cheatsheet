@@ -1,7 +1,9 @@
 """
-Tests for basic datetime operations in Django.
+Basic datetime operations in Django
+
+Basic operations with datetime objects in Django, including timezone handling and conversions.
 """
-import datetime
+
 from datetime import date, datetime, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -9,7 +11,6 @@ from django.conf import settings
 from django.test import TestCase
 from django.utils import timezone as dj_tz
 
-from apps.events.models import Event
 from model_bakery import baker
 
 utc = timezone.utc
@@ -17,6 +18,11 @@ utc = timezone.utc
 
 class TestDateTimeBasics(TestCase):
     def test_datetime_basics(self):
+        """
+        The following code demonstrates how to work with timezone-aware and naive datetime objects, how to get the
+        current time in different timezones, and how to convert between timezones. `settings.TIME_ZONE` is set to
+        `"America/Chicago"` in the Django settings and `utc` equals `datetime.timezone.utc`.
+        """
         # Get the current timezone, the current timezone is based on the TIME_ZONE setting in Django settings.
         current_tz = dj_tz.get_current_timezone()
         assert str(current_tz) == settings.TIME_ZONE
@@ -41,11 +47,11 @@ class TestDateTimeBasics(TestCase):
         utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
         assert utc_dt.tzinfo == utc
 
-        # Get the current datetime in the local timezone
+        # Convert a UTC datetime to a local datetime object
         local_dt = dj_tz.localtime(utc_dt)
         assert local_dt.tzinfo == ZoneInfo("America/Chicago")
 
-        # Convert another local datetime to a different timezone
+        # Convert a local datetime object to a different timezone
         mountain_datetime = dj_tz.localtime(
             local_dt, timezone=ZoneInfo("America/Denver")
         )
@@ -61,11 +67,8 @@ class TestDateTimeBasics(TestCase):
 
     def test_timezone_activation(self):
         """
-        Change the active timezone for the current thread
-
-        It should be noted that we use this method for web requests to set the time_zone to the users timezone
-        using our own Django middleware (apps.base.middleware.TimezoneMiddleware). I'm guessing we have some bugs in
-        jobs that send emails because I bet we forget to set the timezone in the job to the user's timezone.
+        Django allows you to temporarily change the active timezone for the current thread.
+        This is useful for setting the timezone to the user's timezone in middleware or another context.
         """
         assert dj_tz.get_current_timezone_name() == "America/Chicago"
         dj_tz.activate(ZoneInfo("America/New_York"))
@@ -74,6 +77,10 @@ class TestDateTimeBasics(TestCase):
         assert dj_tz.get_current_timezone_name() == "America/Chicago"
 
     def test_timezone_override(self):
+        """
+        Django provides a context manager to temporarily override the active timezone.
+        This is useful when you need to perform operations in a specific timezone.
+        """
         # Use override to temporarily save a model's datetime in a different timezone
         with dj_tz.override(ZoneInfo("America/Los_Angeles")):
             event_start_time = dj_tz.make_aware(datetime(2024, 1, 1, 22, 30))
@@ -89,14 +96,14 @@ class TestDateTimeBasics(TestCase):
             == event_start_time
         )
 
-    def test_datetime_combine(self):
+    def test_combine_date_and_time(self):
         """
-        Combine a date object with a time object to create a datetime object
+        Combine a date object with a time object to create a datetime object. This is useful when you have separate
+        date and time fields in a form and need to combine them into a single datetime object.
 
-        It should be noted that you can use Django's SplitDateTimeField if you want to combine a date and time in a
-        form that is using separate fields.
+        **Note:** Django's SplitDateTimeField can be used for this purpose in forms.
         """
         datetime_obj = dj_tz.make_aware(
             datetime.combine(date(2024, 1, 1), time(22, 30))
         )
-        assert datetime_obj.tzinfo == dj_tz.get_current_timezone() 
+        assert datetime_obj.tzinfo == dj_tz.get_current_timezone()

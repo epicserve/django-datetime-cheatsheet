@@ -1,6 +1,7 @@
 """
-Tests for datetime template rendering in Django.
+Datetime Template rendering in Django
 """
+
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -21,6 +22,12 @@ class TestTemplateRendering(TestCase):
         return template.render(context).strip()
 
     def test_formatting_datetimes_in_a_django_template(self):
+        """
+        Django templates automatically handle timezone conversion when rendering datetime objects.
+        The default format is determined by the DATETIME_FORMAT setting.
+
+        The `date` filter can be used to format datetime objects in different ways.
+        """
         # Create a fixed datetime in UTC for demonstration purposes and a UTC that as a different day than localtime
         utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
 
@@ -29,16 +36,10 @@ class TestTemplateRendering(TestCase):
         result = self.render_str_template("{{ utc_dt }}", {"utc_dt": utc_dt})
         assert result == "Jan. 1, 2024, 6 p.m."
 
-        """
-        Render a datetime object using Django's date filter
-
-        Ref: https://docs.djangoproject.com/en/4.0/ref/templates/builtins/#date
-
-        Notice that when using the `date` filter the day is in the local timezone day because the rendered day is the
-        1st and not the 2nd
-        """
-
-        # Render a datetime object using the default DATE_FORMAT setting
+        # Render a datetime object using Django's date filter. The date filter uses whatever format
+        # `settings.DATE_FORMAT` is set to. Also, notice that when using the `date` filter the day is in the local
+        # timezone day because the rendered day is the 1st and not the 2nd
+        # Ref: https://docs.djangoproject.com/en/4.0/ref/templates/builtins/#date
         result = self.render_str_template("{{ utc_dt|date }}", {"utc_dt": utc_dt})
         assert result == "Jan. 1, 2024"
 
@@ -61,9 +62,14 @@ class TestTemplateRendering(TestCase):
         assert result == "01/01/2024 6 p.m."
 
     def test_javascript_datetime_rendering(self):
+        """
+        When passing datetime objects to JavaScript, it's important to format them
+        in a way that JavaScript can understand. The 'c' format specifier outputs
+        an ISO 8601 formatted date, which is ideal for JavaScript.
+        """
         # Create a fixed datetime in UTC for demonstration purposes
         utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
-        
+
         # Render a datetime object in order to pass it into Javascript
         result = self.render_str_template(
             """
@@ -78,9 +84,15 @@ class TestTemplateRendering(TestCase):
         assert "new Date('2024-01-01T18:00:00-06:00')" in result
 
     def test_timezone_template_tags(self):
+        """
+        Use timezone template tags to control datetime rendering.
+
+        Django provides template tags to control timezone conversion in templates.
+        The `timezone` tag allows you to render a datetime in a specific timezone.
+        """
         # Create a fixed datetime in UTC for demonstration purposes
         utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
-        
+
         # Render a datetime object that has a different timezone than the active timezone
         pt_dt = dj_tz.localtime(utc_dt, ZoneInfo("America/Los_Angeles"))
         assert pt_dt.strftime("%Y-%m-%d %-I:%M %p") == "2024-01-01 4:00 PM"
@@ -96,6 +108,13 @@ class TestTemplateRendering(TestCase):
         assert "Jan. 1, 2024, 4 p.m." in result
 
     def test_model_display_methods(self):
+        """
+        Use model methods to display datetimes in the model's timezone.
+
+        When working with models that have timezone-specific datetime fields,
+        it's often useful to create methods that display the datetime in the
+        model's timezone rather than the current timezone.
+        """
         # Render a datetime object in a different timezone using the localtime template tag.
         p_dt = datetime(2024, 1, 1, 13, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
         event = baker.make(
@@ -111,4 +130,4 @@ class TestTemplateRendering(TestCase):
         result = self.render_str_template(
             "{{ event.display_start_time }}", {"event": event}
         )
-        assert "Jan. 1, 2024, 1:30 p.m." in result 
+        assert "Jan. 1, 2024, 1:30 p.m." in result

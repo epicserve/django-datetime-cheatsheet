@@ -26,125 +26,89 @@ You can also follow along with the cheat sheet by starting a Django shell:
 
 ```bash
 uv run ./manage.py shell
-Python 3.13.0 (main, Oct  7 2024, 23:47:22) [Clang 18.1.8 ] on darwin
-Type "help", "copyright", "credits" or "license" for more information.
-(InteractiveConsole)
->>> 
 ```
 
-Let's get started, first, let's import the necessary modules:
+<!-- section-examples-start -->
+## Basic datetime operations in Django
 
+Basic operations with datetime objects in Django, including timezone handling and conversions.
+
+### Datetime Basics
+
+The following code demonstrates how to work with timezone-aware and naive datetime objects, how to get the
+current time in different timezones, and how to convert between timezones. `settings.TIME_ZONE` is set to
+`"America/Chicago"` in the Django settings and `utc` equals `datetime.timezone.utc`.
 ```python
->>> from datetime import date, datetime, time, timedelta, timezone
->>> from zoneinfo import ZoneInfo
-# Import Django's timezone utilities as dj_tz for illustrative purposes and to
-# avoid confusion with the built-in timezone module
->>> from django.utils import timezone as dj_tz
->>> # Define UTC for convenience
->>> utc = timezone.utc
+# Get the current timezone, the current timezone is based on the TIME_ZONE setting in Django settings.
+current_tz = dj_tz.get_current_timezone()
+
+assert str(current_tz) == settings.TIME_ZONE
+
+
+# Get the current datetime in UTC
+now = dj_tz.now()
+assert now.tzinfo == utc
+
+
+# Check if a datetime object is naive or aware. Naive, meaning it doesn't have a timezone, and aware, meaning
+# it has a timezone.
+naive_datetime = datetime(2024, 4, 7, 14, 30)
+assert dj_tz.is_naive(naive_datetime) is True
+assert dj_tz.is_aware(naive_datetime) is False
+
+
+# Make a naive datetime aware
+aware_datetime = dj_tz.make_aware(naive_datetime)
+assert aware_datetime.tzinfo == current_tz
+assert dj_tz.is_naive(aware_datetime) is False
+assert dj_tz.is_aware(aware_datetime) is True
+
+
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
+assert utc_dt.tzinfo == utc
+
+
+# Convert a UTC datetime to a local datetime object
+local_dt = dj_tz.localtime(utc_dt)
+assert local_dt.tzinfo == ZoneInfo("America/Chicago")
+
+
+# Convert a local datetime object to a different timezone
+mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("America/Denver"))
+assert mountain_datetime.tzinfo == ZoneInfo("America/Denver")
+
+
+# Avoid bugs with dates by using Django's localdate function
+# 6 p.m. on January 1st in the local timezone is 12 a.m. on January 2nd in UTC
+local_dt = datetime(2024, 1, 1, 18, 0, tzinfo=ZoneInfo("America/Chicago"))
+
+utc_dt_next_day = dj_tz.localtime(local_dt, timezone=utc)
+assert utc_dt_next_day.date() != date(2024, 1, 1)
+assert utc_dt_next_day.date() == date(2024, 1, 2)
+assert dj_tz.localdate(utc_dt_next_day) == date(2024, 1, 1)
 ```
 
-### Getting the Current Timezone
+### Timezone Activation
 
-The current timezone in Django timezone is based on the `TIME_ZONE` setting in your Django settings.
-
+Django allows you to temporarily change the active timezone for the current thread.
+This is useful for setting the timezone to the user's timezone in middleware or another context.
 ```python
->>> dj_tz.get_current_timezone_name()
-'America/Chicago'
+assert dj_tz.get_current_timezone_name() == "America/Chicago"
+
+dj_tz.activate(ZoneInfo("America/New_York"))
+assert dj_tz.get_current_timezone_name() == "America/New_York"
+
+dj_tz.deactivate()
+assert dj_tz.get_current_timezone_name() == "America/Chicago"
 ```
 
-### Get Current Datetime
+### Timezone Override
 
-Getting the current datetime in UTC is straightforward:
-
+Django provides a context manager to temporarily override the active timezone.
+This is useful when you need to perform operations in a specific timezone.
 ```python
->>> dj_tz.now()
-datetime.datetime(2024, 12, 6, 22, 51, 15, 145061, tzinfo=datetime.timezone.utc)
-```
-
-> **Notice:** `now()` returns the a datetime object with the UTC timezone.
-
-Get the current datetime in the local timezone:
-
-```python
->>> dj_tz.localtime(dj_tz.now())
-datetime.datetime(2024, 12, 6, 16, 51, 15, 145061, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago'))
-```
-
-### Naive vs Aware Datetimes
-
-Django distinguishes between "naive" and "aware" datetime objects. Naive datetimes don't have timezone information,
-while aware datetimes do.
-
-```python
->>> naive_datetime = datetime(2024, 4, 7, 14, 30)
->>> dj_tz.is_naive(naive_datetime)
-True
->>> dj_tz.is_aware(naive_datetime)
-False
-
->>> # Converting naive to aware
->>> aware_datetime = dj_tz.make_aware(naive_datetime)
->>> aware_datetime
-datetime.datetime(2024, 4, 7, 14, 30, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago'))
->>> dj_tz.is_aware(aware_datetime)
-True
->>> dj_tz.is_naive(aware_datetime)
-False
-```
-
-### Timezone Conversions
-
-You can create and convert datetimes between different timezones:
-
-```python
->>> # Create a UTC datetime
->>> utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
->>> # Convert to local time
->>> local_dt = dj_tz.localtime(utc_dt)
->>> local_dt
-datetime.datetime(2024, 10, 1, 8, 30, tzinfo=zoneinfo.ZoneInfo(key='America/Chicago'))
-
->>> # Convert to Mountain time
->>> mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("US/Mountain"))
->>> mountain_datetime
-datetime.datetime(2024, 10, 1, 7, 30, tzinfo=zoneinfo.ZoneInfo(key='US/Mountain'))
-```
-
-### Handling Date Boundaries
-
-Be careful when working with dates across timezones. For example, 6 PM on January 1st in Central time is actually
-January 2nd in UTC:
-
-```python
->>> local_dt = datetime(2024, 1, 1, 18, 0, tzinfo=ZoneInfo("US/Central"))
->>> utc_dt_next_day = dj_tz.localtime(local_dt, timezone=utc)
->>> utc_dt_next_day.date()
-datetime.date(2024, 1, 2)
->>> # Use localdate to get the date in local time
->>> dj_tz.localdate(utc_dt_next_day)
-datetime.date(2024, 1, 1)
-```
-
-### Changing Active Timezone
-
-You can temporarily change the active timezone for the current thread. This is useful when you need to perform
-operations in a different timezone.
-
-```python
->>> dj_tz.get_current_timezone_name()
-'America/Chicago'
->>> dj_tz.activate(ZoneInfo("US/Eastern"))
->>> dj_tz.get_current_timezone_name()
-'US/Eastern'
->>> dj_tz.deactivate()  # Reset to default
->>> dj_tz.get_current_timezone_name()
-'America/Chicago'
-```
-
-Use the `override` context manager to temporarily change the timezone:
-
-```python
+# Use override to temporarily save a model's datetime in a different timezone
 with dj_tz.override(ZoneInfo("America/Los_Angeles")):
     event_start_time = dj_tz.make_aware(datetime(2024, 1, 1, 22, 30))
     event_end_time = event_start_time + timedelta(hours=1)
@@ -152,93 +116,581 @@ with dj_tz.override(ZoneInfo("America/Los_Angeles")):
     event.start_time = event_start_time
     event.end_time = event_end_time
     event.save()
+
+event.refresh_from_db()
+assert (
+    dj_tz.localtime(event.start_time, ZoneInfo("America/Los_Angeles"))
+    == event_start_time
+)
 ```
 
-## Formatting Datetime Objects
+### Combine Date And Time
+
+Combine a date object with a time object to create a datetime object. This is useful when you have separate
+date and time fields in a form and need to combine them into a single datetime object.
+
+**Note:** Django's SplitDateTimeField can be used for this purpose in forms.
+```python
+datetime_obj = dj_tz.make_aware(datetime.combine(date(2024, 1, 1), time(22, 30)))
+assert datetime_obj.tzinfo == dj_tz.get_current_timezone()
+```
+
+## Formatting datetime objects in Django
+
+
+
+### Datetime String Formats
 
 Django provides several ways to format datetime objects into strings.
+The `formats.date_format()` function is the most common way to format datetimes.
 
-### Using Django's dateformat Module
-
+**Note:** The format function **DOESN'T** automatically convert datetime objects
+that are in UTC to the current timezone.
 ```python
->>> from django.utils import dateformat
->>> utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
->>> dateformat.format(utc_dt, settings.DATETIME_FORMAT)
-'Oct. 1, 2024, 1:30 p.m.'
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
+
+assert (
+    formats.date_format(utc_dt, settings.DATETIME_FORMAT) == "Oct. 1, 2024, 1:30 p.m."
+)
+assert (
+    formats.date_format(utc_dt, settings.SHORT_DATETIME_FORMAT)
+    == "10/01/2024 1:30 p.m."
+)
+assert formats.date_format(utc_dt, settings.SHORT_DATE_FORMAT) == "10/01/2024"
+assert formats.date_format(utc_dt, "Y-m-d") == "2024-10-01"
 ```
 
-<div class="notice notice-warning">
-  <strong>Warning:</strong> The `dateformat` module doesn't handle timezone conversion.
-</div>
+### Local Datetime Format
 
-If you need to convert to local time, you can use Django's `localtime` you can make a wrapper function for convenience:
-
+Since `date_format()` doesn't automatically convert times in UTC to the current timezone,
+it's best to create a shortcut function to do this for you. Then you can use this function
+to format datetimes in the current timezone.
 ```python
->>> def local_format(value, format_string):
-...     return dateformat.format(dj_tz.localtime(value), format_string)
-...
->>> local_format(utc_dt, settings.DATETIME_FORMAT)
-'Oct. 1, 2024, 8:30 a.m.'
+def local_datetime_format(dt, df=settings.DATETIME_FORMAT):
+    return formats.date_format(dj_tz.localtime(dt), df)
+
+
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
+assert local_datetime_format(utc_dt) == "Oct. 1, 2024, 8:30 a.m."
+assert (
+    local_datetime_format(utc_dt, settings.DATETIME_FORMAT) == "Oct. 1, 2024, 8:30 a.m."
+)
+assert (
+    local_datetime_format(utc_dt, settings.SHORT_DATETIME_FORMAT)
+    == "10/01/2024 8:30 a.m."
+)
 ```
 
-## Template Formatting
+### Datetime Format Helper Functions
 
-When working with datetimes in Django templates, the date filter automatically handles timezone conversion:
+For common formatting needs, you can create even more specialized helper functions. For example, if you need to
+format a datetime object into the `SHORT_DATETIME_FORMAT` string in the local timezone, you can create a
+helper function like the following.
 
+Then everywhere you need to format a datetime in the `SHORT_DATETIME_FORMAT` string in the local timezone, you
+can call this function.
 ```python
-{% raw %}
->>> from django.template import Template, Context
->>> utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
 
->>> # Default format
->>> Template("{{ utc_dt }}").render(Context({"utc_dt": utc_dt}))
-'Jan. 1, 2024, 6 p.m.'
 
->>> # Custom format
->>> Template("{{ utc_dt|date:'DATE_FORMAT' }}").render(Context({"utc_dt": utc_dt}))
-'Jan. 1, 2024'
-
->>> # Format for JavaScript
->>> Template("{{ utc_dt|date:'c' }}").render(Context({"utc_dt": utc_dt}))
-'2024-01-01T18:00:00-06:00'
-{% endraw %}
+# Create even shorter functions
+def local_short_datetime_format(dt):
+    return formats.date_format(dj_tz.localtime(dt), settings.SHORT_DATETIME_FORMAT)
+assert local_short_datetime_format(utc_dt) == "10/01/2024 8:30 a.m."
 ```
 
-## Testing with Mocked Dates
+## Working with datetime fields in forms
 
-When testing datetime-dependent code, you can mock the current time to ensure consistent results and avoid issues with
-tests randomly failing due to time differences. It's recommended that when mocking datetime objects in tests, that you
-use datetime objects enough mocked datetime objects to cover all of your logic cases.
 
+
+### Timezone Override In Form
+
+When working with forms that handle datetime fields, it's often necessary
+to consider the timezone of the input data. By overriding the `is_valid` method,
+you can ensure that the form validates the data in the correct timezone.
 ```python
->>> from unittest.mock import patch
->>> with patch('django.utils.timezone.now') as mock_now:
-...     mock_now.return_value = datetime(2019, 1, 2, 0, 0, tzinfo=utc)
-...     assert dj_tz.now() == datetime(2019, 1, 2, 0, 0, tzinfo=utc)
+# Use override to temporarily save a model's datetime in a different timezone
+with dj_tz.override(ZoneInfo("America/Los_Angeles")):
+    event_start_time = dj_tz.make_aware(datetime(2024, 1, 1, 22, 30))
+    event_end_time = event_start_time + timedelta(hours=1)
+    event = baker.make("events.Event")
+    event.start_time = event_start_time
+    event.end_time = event_end_time
+    event.save()
+
+
+# Test overriding the timezone with in a ModelForm
+class EventForm(forms.ModelForm):
+    class Meta:
+        model = Event
+        fields = "__all__"
+
+    def is_valid(self):
+        with dj_tz.override(ZoneInfo(self.data["timezone"])):
+            return super().is_valid()
+
+data = {
+    "name": event.name,
+    "start_time": formats.date_format(event_start_time, "m/d/Y H:i:s"),
+    "end_time": formats.date_format(event_end_time, "m/d/Y H:i:s"),
+    "timezone": "America/New_York",
+}
+
+form = EventForm(instance=event, data=data)
+
+assert form.is_valid() is True
+
+form.save()
+
+event.refresh_from_db()
+assert dj_tz.localtime(
+    event.start_time, ZoneInfo("America/New_York")
+) == event_start_time.replace(tzinfo=ZoneInfo("America/New_York"))
 ```
 
-This guide covers the basics of working with dates and times in Django. Remember to always be mindful of timezones when
-handling datetime objects, and use Django's built-in utilities to ensure consistent behavior across your application.
+### Form Rendering
+
+By default, Django renders datetime fields in the current timezone,
+which may not be what you want if your model stores the timezone for each database table record. For example,
+if we create a model form using the Event model in this project, we want to make sure that the start and end
+times get rendered in the timezone specified by the model's timezone field.
+```python
+# The Django apps current timezone
+assert "America/Chicago" == dj_tz.get_current_timezone_name()
+
+
+# Create a start and end time in a different timezone. Let's use 5:00 PM in PST because it will be the next day
+# in UTC which is a good test case.
+local_tz = ZoneInfo("America/Los_Angeles")
+
+start_time = datetime(2025, 2, 20, 17, 0, tzinfo=local_tz)
+
+
+# Create a form with a datetime field
+class EventForm(forms.ModelForm):
+    class Meta:
+        model = Event
+        fields = "__all__"
+
+
+# Create an event with the start and end time in the local timezone.
+event = baker.make(
+    "events.Event",
+    name="Event Test",
+    timezone="America/Los_Angeles",
+    start_time=start_time,
+    end_time=start_time + timedelta(hours=1),
+)
+
+event.refresh_from_db()
+
+
+# Assert that the event is converted to UTC correctly
+assert event.start_time == datetime(2025, 2, 21, 1, 0, tzinfo=utc)
+assert event.end_time == datetime(2025, 2, 21, 2, 0, tzinfo=utc)
+
+
+# Initialize a form with the event
+form = EventForm(instance=event)
+
+
+# Render the form
+result = render_template("{{ form }}", {"form": form})
+
+
+# The following shows that the initial value is in the local timezone using Django's current timezone which is
+# America/Chicago which **ISN'T** what we want.
+assert 'value="2025-02-20 19:00:00"' in result
+assert 'value="2025-02-20 20:00:00"' in result
+
+
+# Create a form with a datetime field
+class LocalEventTimeForm(forms.ModelForm):
+    class Meta:
+        model = Event
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance is not None:
+            self.initial["start_time"] = formats.localize_input(
+                dj_tz.localtime(event.start_time, ZoneInfo(self.instance.timezone))
+            )
+            self.initial["end_time"] = formats.localize_input(
+                dj_tz.localtime(event.end_time, ZoneInfo(self.instance.timezone))
+            )
+
+
+# Initialize a form with the event
+form = LocalEventTimeForm(instance=event)
+
+
+# Render the form
+result = render_template("{{ form }}", {"form": form})
+
+
+# The following shows that the initial values for the start and end are now correctly rendered in the timezone
+# for the event's timezone.
+assert 'value="2025-02-20 17:00:00"' in result
+assert 'value="2025-02-20 18:00:00"' in result
+
+
+# Also test rendering individual fields
+start_time_result = render_template("{{ form.start_time }}", {"form": form})
+
+end_time_result = render_template("{{ form.end_time }}", {"form": form})
+assert 'value="2025-02-20 17:00:00"' in start_time_result
+assert 'value="2025-02-20 18:00:00"' in end_time_result
+
+
+# Now make sure the form also renders the timezone field correctly when data is sumbitted.
+form = LocalEventTimeForm(
+    instance=event,
+    data={
+        "name": "Event Test",
+        "start_time": "2025-02-20 19:00:00",
+        "end_time": "2025-02-20 20:00:00",
+        "timezone": "America/Los_Angeles",
+    },
+)
+
+form.is_valid()
+
+result = render_template("{{ form }}", {"form": form})
+
+
+# Assert that the initial value is in the local timezone of the event.
+assert 'value="2025-02-20 19:00:00"' in result
+assert 'value="2025-02-20 20:00:00"' in result
+```
+
+## Mocking datetime operations in Django Tests
 
 
 
+### Mocking Datetime
+
+When testing code that depends on the current time, it's often necessary to mock the datetime to ensure
+consistent test results. This is especially important for tests that might behave differently depending on the
+time of day or day of the week.
+
+Django's `timezone.now()` function is commonly used to get the current time, so mocking it allows you to
+control what "now" means in your tests.
+
+For example, if you use the decorator `@patch("django.utils.timezone.now")` on a test method and pass in
+`mock_now` as an argument, you can then set the return value of `mock_now` to a fixed datetime object.
+
+See the test `tests.test_mocking.TestMocking.test_mocking_datetime` for the full example.
+```python
+mocked_now = datetime(2019, 1, 2, 0, 0, tzinfo=utc)
+
+mock_now.return_value = mocked_now
+
+django_now = dj_tz.now()
+
+assert django_now == mocked_now
+```
+
+## Working with Date Times in Models
 
 
 
+### Bulk Create And Bulk Update
+
+When creating multiple model instances with datetime fields in bulk,
+it's important to ensure that the datetimes are stored correctly in the database.
+This test demonstrates how to create events in different timezones using bulk_create.
+```python
+naive_start_time = datetime(2025, 2, 20, 16, 20)
+
+naive_end_time = naive_start_time + timedelta(hours=1)
+
+time_zones_to_test = [
+    "America/Los_Angeles",
+    "America/Denver",
+    "America/Chicago",
+    "America/New_York",
+]
+
+events = []
+
+for time_zone in time_zones_to_test:
+    tz_obj = ZoneInfo(time_zone)
+    events.append(
+        Event(
+            **{
+                "name": time_zone,
+                "start_time": dj_tz.make_aware(naive_start_time, timezone=tz_obj),
+                "end_time": dj_tz.make_aware(naive_end_time, timezone=tz_obj),
+                "timezone": time_zone,
+            }
+        )
+    )
+
+Event.objects.bulk_create(events)
+
+
+# Assert that events are in the correct time UTC time according to their timezone
+serialized_events = [
+    {"id": obj["pk"], **obj["fields"]}
+    for obj in json.loads(serialize("json", Event.objects.all()))
+]
+
+assert serialized_events == [
+    {
+        "end_time": "2025-02-21T01:20:00Z",
+        "id": 1,
+        "name": "America/Los_Angeles",
+        "start_time": "2025-02-21T00:20:00Z",
+        "timezone": "America/Los_Angeles",
+    },
+    {
+        "end_time": "2025-02-21T00:20:00Z",
+        "id": 2,
+        "name": "America/Denver",
+        "start_time": "2025-02-20T23:20:00Z",
+        "timezone": "America/Denver",
+    },
+    {
+        "end_time": "2025-02-20T23:20:00Z",
+        "id": 3,
+        "name": "America/Chicago",
+        "start_time": "2025-02-20T22:20:00Z",
+        "timezone": "America/Chicago",
+    },
+    {
+        "end_time": "2025-02-20T22:20:00Z",
+        "id": 4,
+        "name": "America/New_York",
+        "start_time": "2025-02-20T21:20:00Z",
+        "timezone": "America/New_York",
+    },
+]
+```
+
+### Bulk Update
+
+Handle datetime fields in bulk update operations.
+
+When updating multiple model instances with datetime fields in bulk,
+it's important to ensure that the datetimes are updated correctly in the database.
+This test demonstrates how to update events in different timezones using bulk_update.
+```python
+# First create the events
+naive_start_time = datetime(2025, 2, 20, 16, 20)
+
+naive_end_time = naive_start_time + timedelta(hours=1)
+
+time_zones_to_test = [
+    "America/Los_Angeles",
+    "America/Denver",
+    "America/Chicago",
+    "America/New_York",
+]
+
+events = []
+
+for time_zone in time_zones_to_test:
+    tz_obj = ZoneInfo(time_zone)
+    events.append(
+        Event(
+            **{
+                "name": time_zone,
+                "start_time": dj_tz.make_aware(naive_start_time, timezone=tz_obj),
+                "end_time": dj_tz.make_aware(naive_end_time, timezone=tz_obj),
+                "timezone": time_zone,
+            }
+        )
+    )
+
+Event.objects.bulk_create(events)
+
+
+# Test bulk update by adding 1 hour to the start and end time
+events_to_update = []
+
+for event in Event.objects.all():
+    event.start_time += timedelta(hours=1)
+    event.end_time += timedelta(hours=1)
+    events_to_update.append(event)
+
+Event.objects.bulk_update(events_to_update, ["start_time", "end_time"])
+
+
+# Assert that events have been updated by one hour and are in the correct time UTC time according to their timezone
+serialized_events = [
+    {"id": obj["pk"], **obj["fields"]}
+    for obj in json.loads(serialize("json", Event.objects.all()))
+]
+assert serialized_events == [
+    {
+        "end_time": "2025-02-21T02:20:00Z",
+        "id": 1,
+        "name": "America/Los_Angeles",
+        "start_time": "2025-02-21T01:20:00Z",
+        "timezone": "America/Los_Angeles",
+    },
+    {
+        "end_time": "2025-02-21T01:20:00Z",
+        "id": 2,
+        "name": "America/Denver",
+        "start_time": "2025-02-21T00:20:00Z",
+        "timezone": "America/Denver",
+    },
+    {
+        "end_time": "2025-02-21T00:20:00Z",
+        "id": 3,
+        "name": "America/Chicago",
+        "start_time": "2025-02-20T23:20:00Z",
+        "timezone": "America/Chicago",
+    },
+    {
+        "end_time": "2025-02-20T23:20:00Z",
+        "id": 4,
+        "name": "America/New_York",
+        "start_time": "2025-02-20T22:20:00Z",
+        "timezone": "America/New_York",
+    },
+]
+```
+
+## Datetime Template rendering in Django
 
 
 
+### Formatting Datetimes In A Django Template
 
-## Tests
+Django templates automatically handle timezone conversion when rendering datetime objects.
+The default format is determined by the DATETIME_FORMAT setting.
 
-Everything that was covered in the [blog post][blog-post] was done based on the tests
-(`apps/base/tests/test_datetime.py`) in this repository. To run the 
+The `date` filter can be used to format datetime objects in different ways.
+```python
+# Create a fixed datetime in UTC for demonstration purposes and a UTC that as a different day than localtime
+utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
+
+
+# Render a datetime object using Django's default formatting for Django templates which is
+# the `settings.DATETIME_FORMAT`.
+result = render_template("{{ utc_dt }}", {"utc_dt": utc_dt})
+
+assert result == "Jan. 1, 2024, 6 p.m."
+
+result = render_template("{{ utc_dt|date }}", {"utc_dt": utc_dt})
+assert result == "Jan. 1, 2024"
+
+
+# Render a date using the SHORT_DATE_FORMAT setting
+result = render_template("{{ utc_dt|date:'SHORT_DATE_FORMAT' }}", {"utc_dt": utc_dt})
+assert result == "01/01/2024"
+
+
+# Render a date using a custom setting
+result = render_template("{{ utc_dt|date:'F j, Y' }}", {"utc_dt": utc_dt})
+assert result == "January 1, 2024"
+
+
+# Render a date using the SHORT_DATETIME_FORMAT setting
+result = render_template(
+    "{{ utc_dt|date:'SHORT_DATETIME_FORMAT' }}", {"utc_dt": utc_dt}
+)
+assert result == "01/01/2024 6 p.m."
+```
+
+### Javascript Datetime Rendering
+
+Render datetime objects for use in JavaScript.
+
+When passing datetime objects to JavaScript, it's important to format them
+in a way that JavaScript can understand. The 'c' format specifier outputs
+an ISO 8601 formatted date, which is ideal for JavaScript.
+```python
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
+
+
+# Render a datetime object in order to pass it into Javascript
+result = render_template("{{ ... }}", {"utc_dt": utc_dt})
+assert "new Date('2024-01-01T18:00:00-06:00')" in result
+```
+
+### Timezone Template Tags
+
+Use timezone template tags to control datetime rendering.
+
+Django provides template tags to control timezone conversion in templates.
+The `timezone` tag allows you to render a datetime in a specific timezone.
+```python
+# Create a fixed datetime in UTC for demonstration purposes
+utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
+
+
+# Render a datetime object that has a different timezone than the active timezone
+pt_dt = dj_tz.localtime(utc_dt, ZoneInfo("America/Los_Angeles"))
+assert pt_dt.strftime("%Y-%m-%d %-I:%M %p") == "2024-01-01 4:00 PM"
+assert dj_tz.get_current_timezone_name() == "America/Chicago"
+
+result = render_template("{{ pt_dt }}", {"pt_dt": pt_dt})
+assert "Jan. 1, 2024, 6 p.m." in result
+
+
+# Render a datetime object in a different timezone using the timezone template tag
+result = render_template(
+    '{% load tz %}{% timezone "America/Los_Angeles" %}{{ pt_dt }}{% endtimezone %}',
+    {"pt_dt": pt_dt},
+)
+assert "Jan. 1, 2024, 4 p.m." in result
+```
+
+### Model Display Methods
+
+Use model methods to display datetimes in the model's timezone.
+
+When working with models that have timezone-specific datetime fields,
+it's often useful to create methods that display the datetime in the
+model's timezone rather than the current timezone.
+```python
+# Render a datetime object in a different timezone using the localtime template tag.
+p_dt = datetime(2024, 1, 1, 13, 30, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+event = baker.make(
+    "events.event",
+    start_time=p_dt,
+    end_time=p_dt + timedelta(hours=1),
+    timezone="America/Los_Angeles",
+)
+
+event.refresh_from_db()
+assert event.start_time.tzinfo == utc
+assert p_dt.tzinfo == ZoneInfo("America/Los_Angeles")
+
+result = render_template("{{ event.display_start_time }}", {"event": event})
+assert "Jan. 1, 2024, 1:30 p.m." in result
+```
+
+
+<!-- section-examples-end -->
+
+
+## Running the Tests
+
+Everything that was covered in this cheatsheet is based on the tests in the `tests/` directory. To run the 
 tests, run the following Just command:
 
 ```bash
 just test
 ```
 
+## Updating the README
+
+This README is automatically generated from the test files. If you make changes to the tests,
+you can update the README by running:
+
+```bash
+just update_readme
+```
 
 ## See Dynamic Timezone Changes
 
@@ -248,12 +700,16 @@ Run the following Just command to run the Django server:
 just start
 ```
 
-Once the server is running, you can navigate to http://localhost:8000 to login in. Then in the 
-[Django admin](http://localhost:8000/admin/accounts/user/), change your user's timezone to one your not in and then go 
-back to the home page. You should see modal appear that asks if you want to change your timezone to reflect your 
-current timezone.
+## Contributing
 
+Contributions are welcome! If you have a datetime-related Django tip or trick that you'd like to add to this cheatsheet,
+please open a pull request.
 
-[blog-post]: https://epicserve.com/django/2025/01/14/django-datetime-cheatsheet.html
-[uv]: https://docs.astral.sh/uv/getting-started/installation/
-[just]: https://github.com/casey/just?tab=readme-ov-file#installation
+## References
+
+- [Django Documentation on Time Zones](https://docs.djangoproject.com/en/stable/topics/i18n/timezones/)
+- [Python datetime module](https://docs.python.org/3/library/datetime.html)
+- [Python zoneinfo module](https://docs.python.org/3/library/zoneinfo.html)
+
+[uv]: https://github.com/astral-sh/uv
+[just]: https://github.com/casey/just

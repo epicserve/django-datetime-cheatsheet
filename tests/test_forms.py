@@ -1,6 +1,7 @@
 """
-Tests for datetime form operations in Django.
+Working with datetime fields in forms
 """
+
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -23,6 +24,11 @@ class TestForms(TestCase):
         return template.render(context).strip()
 
     def test_timezone_override_in_form(self):
+        """
+        When working with forms that handle datetime fields, it's often necessary
+        to consider the timezone of the input data. By overriding the `is_valid` method,
+        you can ensure that the form validates the data in the correct timezone.
+        """
         # Use override to temporarily save a model's datetime in a different timezone
         with dj_tz.override(ZoneInfo("America/Los_Angeles")):
             event_start_time = dj_tz.make_aware(datetime(2024, 1, 1, 22, 30))
@@ -57,13 +63,19 @@ class TestForms(TestCase):
         ) == event_start_time.replace(tzinfo=ZoneInfo("America/New_York"))
 
     def test_form_rendering(self):
+        """
+        By default, Django renders datetime fields in the current timezone,
+        which may not be what you want if your model stores the timezone for each database table record. For example,
+        if we create a model form using the Event model in this project, we want to make sure that the start and end
+        times get rendered in the timezone specified by the model's timezone field.
+        """
         # The Django apps current timezone
-        assert 'America/Chicago' == dj_tz.get_current_timezone_name()
+        assert "America/Chicago" == dj_tz.get_current_timezone_name()
 
-        # Create a start and end time in a different timezone. Let's use 4:20 PM because it's funny and because in PST
-        # it will be the next day in UTC which is a good test case.
-        local_tz = ZoneInfo('America/Los_Angeles')
-        start_time = datetime(2025, 2, 20, 16, 20, tzinfo=local_tz)
+        # Create a start and end time in a different timezone. Let's use 5:00 PM in PST because it will be the next day
+        # in UTC which is a good test case.
+        local_tz = ZoneInfo("America/Los_Angeles")
+        start_time = datetime(2025, 2, 20, 17, 00, tzinfo=local_tz)
 
         # Create a form with a datetime field
         class EventForm(forms.ModelForm):
@@ -72,109 +84,78 @@ class TestForms(TestCase):
                 fields = "__all__"
 
         # Create an event with the start and end time in the local timezone.
-        event = baker.make("events.Event", name='Event Test', timezone='America/Los_Angeles', start_time=start_time, end_time=start_time + timedelta(hours=1))
+        event = baker.make(
+            "events.Event",
+            name="Event Test",
+            timezone="America/Los_Angeles",
+            start_time=start_time,
+            end_time=start_time + timedelta(hours=1),
+        )
+        event.refresh_from_db()
 
         # Assert that the event is converted to UTC correctly
-        assert event.start_time == datetime(2025, 2, 21, 0, 20, tzinfo=utc)
-        assert event.end_time == datetime(2025, 2, 21, 1, 20, tzinfo=utc)
+        assert event.start_time == datetime(2025, 2, 21, 1, 0, tzinfo=utc)
+        assert event.end_time == datetime(2025, 2, 21, 2, 0, tzinfo=utc)
 
         # Initialize a form with the event
         form = EventForm(instance=event)
 
         # Render the form
-        result = self.render_str_template('{{ form }}', {'form': form})
+        result = self.render_str_template("{{ form }}", {"form": form})
 
         # The following shows that the initial value is in the local timezone using Django's current timezone which is
-        # America/Chicago which isn't what we want.
-        assert 'value="2025-02-20 18:20:00"' in result
-        assert 'value="2025-02-20 19:20:00"' in result
+        # America/Chicago which **ISN'T** what we want.
+        assert 'value="2025-02-20 19:00:00"' in result
+        assert 'value="2025-02-20 20:00:00"' in result
 
-    def test_form_rendering_with_timezone_override(self):
-        # Create a start and end time in a different timezone
-        local_tz = ZoneInfo('America/Los_Angeles')
-        start_time = datetime(2025, 2, 20, 16, 20, tzinfo=local_tz)
+        # Instead if you want to render the datetime fields in the model's timezone, you can override the initial values
+        # in the form.
 
         # Create a form with a datetime field
-        class EventForm(forms.ModelForm):
+        class LocalEventTimeForm(forms.ModelForm):
+
             class Meta:
                 model = Event
                 fields = "__all__"
 
-        # Create an event with the start and end time in the local timezone.
-        event = baker.make("events.Event", name='Event Test', timezone='America/Los_Angeles', start_time=start_time, end_time=start_time + timedelta(hours=1))
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                if self.instance is not None:
+                    self.initial["start_time"] = formats.localize_input(
+                        dj_tz.localtime(event.start_time, ZoneInfo(self.instance.timezone))
+                    )
+                    self.initial["end_time"] = formats.localize_input(
+                        dj_tz.localtime(event.end_time, ZoneInfo(self.instance.timezone))
+                    )
 
-        # Render the initial start and end time values using the event's timezone by using a form that overrides the
-        # initial value.
-        form = EventForm(instance=event)
+        # Initialize a form with the event
+        form = LocalEventTimeForm(instance=event)
 
-        # Override the initial value and render to a string to make sure the time isn't converted to local time by using
-        # Django's current timezone. Use the same function `formats.localize_input()` render to a string that
-        # django.forms.widgets.DateTimeInput widget uses to render the initial value.
-        form.initial['start_time'] = formats.localize_input((dj_tz.localtime(event.start_time, local_tz)))
-        form.initial['end_time'] = formats.localize_input((dj_tz.localtime(event.end_time, local_tz)))
-        result = self.render_str_template('{{ form }}', {'form': form})
+        # Render the form
+        result = self.render_str_template("{{ form }}", {"form": form})
 
-        # Assert that the initial value is in the local timezone of the event.
-        assert 'value="2025-02-20 16:20:00"' in result
-        assert 'value="2025-02-20 17:20:00"' in result
+        # The following shows that the initial values for the start and end are now correctly rendered in the timezone
+        # for the event's timezone.
+        assert 'value="2025-02-20 17:00:00"' in result
+        assert 'value="2025-02-20 18:00:00"' in result
 
-    def test_form_with_data(self):
-        # Create a start and end time in a different timezone
-        local_tz = ZoneInfo('America/Los_Angeles')
-        start_time = datetime(2025, 2, 20, 16, 20, tzinfo=local_tz)
+        # Also test rendering individual fields
+        start_time_result = self.render_str_template("{{ form.start_time }}", {"form": form})
+        end_time_result = self.render_str_template("{{ form.end_time }}", {"form": form})
 
-        # Create an event with the start and end time in the local timezone.
-        event = baker.make("events.Event", name='Event Test', timezone='America/Los_Angeles', start_time=start_time, end_time=start_time + timedelta(hours=1))
+        assert 'value="2025-02-20 17:00:00"' in start_time_result
+        assert 'value="2025-02-20 18:00:00"' in end_time_result
 
-        # Create a form with a datetime field
-        class EventForm(forms.ModelForm):
-            class Meta:
-                model = Event
-                fields = "__all__"
-
-        # Test with data
-        form = EventForm(instance=event, data={
-            'name': 'Event Test',
-            'start_time': '2025-02-20 16:20:00',
-            'end_time': '2025-02-20 17:20:00',
-            'timezone': 'America/Los_Angeles',
-        })
+        # Now make sure the form also renders the timezone field correctly when data is sumbitted.
+        form = LocalEventTimeForm(instance=event, data={
+                "name": "Event Test",
+                "start_time": "2025-02-20 19:00:00",
+                "end_time": "2025-02-20 20:00:00",
+                "timezone": "America/Los_Angeles",
+            },)
         form.is_valid()
-        form.initial['start_time'] = formats.localize_input((dj_tz.localtime(event.start_time, local_tz)))
-        form.initial['end_time'] = formats.localize_input((dj_tz.localtime(event.end_time, local_tz)))
-        result = self.render_str_template('{{ form }}', {'form': form})
+        result = self.render_str_template("{{ form }}", {"form": form})
 
         # Assert that the initial value is in the local timezone of the event.
-        assert 'value="2025-02-20 16:20:00"' in result
-        assert 'value="2025-02-20 17:20:00"' in result
-
-    def test_form_field_rendering(self):
-        # Create a start and end time in a different timezone
-        local_tz = ZoneInfo('America/Los_Angeles')
-        start_time = datetime(2025, 2, 20, 16, 20, tzinfo=local_tz)
-
-        # Create an event with the start and end time in the local timezone.
-        event = baker.make("events.Event", name='Event Test', timezone='America/Los_Angeles', start_time=start_time, end_time=start_time + timedelta(hours=1))
-
-        # Create a form with a datetime field
-        class EventForm(forms.ModelForm):
-            class Meta:
-                model = Event
-                fields = "__all__"
-
-        # Test with rendering a field
-        form = EventForm(instance=event, data={
-            'name': 'Event Test',
-            'start_time': '2025-02-20 16:20:00',
-            'end_time': '2025-02-20 17:20:00',
-            'timezone': 'America/Los_Angeles',
-        })
-        form.is_valid()
-        form.initial['start_time'] = formats.localize_input((dj_tz.localtime(event.start_time, local_tz)))
-        form.initial['end_time'] = formats.localize_input((dj_tz.localtime(event.end_time, local_tz)))
-        start_field_result = self.render_str_template('{{ form.start_time }}', {'form': form})
-        end_field_result = self.render_str_template('{{ form.end_time }}', {'form': form})
-
-        # Assert that the initial value is in the local timezone of the event.
-        assert 'value="2025-02-20 16:20:00"' in start_field_result
-        assert 'value="2025-02-20 17:20:00"' in end_field_result 
+        assert 'value="2025-02-20 19:00:00"' in result
+        assert 'value="2025-02-20 20:00:00"' in result

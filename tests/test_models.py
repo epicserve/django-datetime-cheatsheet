@@ -1,6 +1,7 @@
 """
-Tests for datetime model operations in Django.
+Working with Date Times in Models
 """
+
 import json
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -16,6 +17,11 @@ utc = timezone.utc
 
 class TestModels(TestCase):
     def test_bulk_create_and_bulk_update(self):
+        """
+        When creating multiple model instances with datetime fields in bulk,
+        it's important to ensure that the datetimes are stored correctly in the database.
+        This test demonstrates how to create events in different timezones using bulk_create.
+        """
         naive_start_time = datetime(2025, 2, 20, 16, 20)
         naive_end_time = naive_start_time + timedelta(hours=1)
         time_zones_to_test = [
@@ -80,6 +86,13 @@ class TestModels(TestCase):
         ]
 
     def test_bulk_update(self):
+        """
+        Handle datetime fields in bulk update operations.
+
+        When updating multiple model instances with datetime fields in bulk,
+        it's important to ensure that the datetimes are updated correctly in the database.
+        This test demonstrates how to update events in different timezones using bulk_update.
+        """
         # First create the events
         naive_start_time = datetime(2025, 2, 20, 16, 20)
         naive_end_time = naive_start_time + timedelta(hours=1)
@@ -107,7 +120,7 @@ class TestModels(TestCase):
             )
 
         Event.objects.bulk_create(events)
-        
+
         # Test bulk update by adding 1 hour to the start and end time
         events_to_update = []
         for event in Event.objects.all():
@@ -151,4 +164,4 @@ class TestModels(TestCase):
                 "start_time": "2025-02-20T22:20:00Z",
                 "timezone": "America/New_York",
             },
-        ] 
+        ]
