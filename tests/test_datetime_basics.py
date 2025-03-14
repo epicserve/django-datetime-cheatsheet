@@ -21,7 +21,8 @@ class TestDateTimeBasics(TestCase):
         """
         The following code demonstrates how to work with timezone-aware and naive datetime objects, how to get the
         current time in different timezones, and how to convert between timezones. `settings.TIME_ZONE` is set to
-        `"America/Chicago"` in the Django settings and `utc` equals `datetime.timezone.utc`.
+        `"America/Chicago"` in the Django settings, `utc` equals `datetime.timezone.utc`, and `dj_tz` equals
+        `django.utils.timezone`.
         """
         # Get the current timezone, the current timezone is based on the TIME_ZONE setting in Django settings.
         current_tz = dj_tz.get_current_timezone()
@@ -58,7 +59,8 @@ class TestDateTimeBasics(TestCase):
         assert mountain_datetime.tzinfo == ZoneInfo("America/Denver")
 
         # Avoid bugs with dates by using Django's localdate function
-        # 6 p.m. on January 1st in the local timezone is 12 a.m. on January 2nd in UTC
+        # 6 p.m. on January 1st in the local timezone (UTC-6:00 aka
+        # Central Standard Time) is 12 a.m. on January 2nd in UTC
         local_dt = datetime(2024, 1, 1, 18, 0, tzinfo=ZoneInfo("America/Chicago"))
         utc_dt_next_day = dj_tz.localtime(local_dt, timezone=utc)
         assert utc_dt_next_day.date() != date(2024, 1, 1)
