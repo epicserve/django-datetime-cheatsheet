@@ -8,25 +8,44 @@ This guide assumes you're familiar with Django and Python's datetime module, and
 `True` in your Django project. Also, for this guide, we'll assume the `TIME_ZONE` setting in your Django project is
 set `'America/Chicago'`.
 
-This cheatsheet is also a Django project that you can run locally to see how the code examples work in practice. Please
-use this repository as a way to play around with the code examples provided in the blog post. To get started, 
-clone this repository and make sure you have [UV][uv] and [Just][just] installed. Then run the following Just command:
+This cheatsheet is also a Django project that you can run locally to see how the code examples work in practice. See 
+[project setup instructions](#project-setup-instructions) section for more details. Also, each code example has a link
+to the full example test that it was copied from.
 
-```bash
-just run_initial_setup
-```
+If you find any issues or have suggestions for improvements, please see the [contributing](#contributing) section so
+you know how to submit a pull request.
 
-Once the setup is complete, you can run the tests that were used to create the majority of the code in the Cheat Sheet.
+<!-- toc-start -->
+## Table of Contents
 
-```bash
-just test
-```
+- [Basic datetime operations in Django](#basic-datetime-operations-in-django)
+  - [Datetime Basics](#datetime-basics)
+  - [Timezone Activation](#timezone-activation)
+  - [Timezone Override](#timezone-override)
+  - [Combine Date And Time](#combine-date-and-time)
+- [Formatting datetime objects in Django](#formatting-datetime-objects-in-django)
+  - [Datetime String Formats](#datetime-string-formats)
+  - [Local Datetime Format](#local-datetime-format)
+  - [Datetime Format Helper Functions](#datetime-format-helper-functions)
+- [Working with datetime fields in forms](#working-with-datetime-fields-in-forms)
+  - [Timezone Override In Form](#timezone-override-in-form)
+  - [Form Rendering](#form-rendering)
+- [Mocking datetime operations in Django Tests](#mocking-datetime-operations-in-django-tests)
+  - [Mocking Datetime](#mocking-datetime)
+- [Working with Date Times in Models](#working-with-date-times-in-models)
+  - [Bulk Create And Bulk Update](#bulk-create-and-bulk-update)
+  - [Bulk Update](#bulk-update)
+- [Datetime Template rendering in Django](#datetime-template-rendering-in-django)
+  - [Formatting Datetimes In A Django Template](#formatting-datetimes-in-a-django-template)
+  - [Javascript Datetime Rendering](#javascript-datetime-rendering)
+  - [Timezone Template Tags](#timezone-template-tags)
+  - [Model Display Methods](#model-display-methods)
+- [Project Setup Instructions](#project-setup-instructions)
+- [Running the Tests](#running-the-tests)
+- [Contributing](#contributing)
+- [References](#references)
 
-You can also follow along with the cheat sheet by starting a Django shell:
-
-```bash
-uv run ./manage.py shell
-```
+<!-- toc-end -->
 
 <!-- section-examples-start -->
 ## Basic datetime operations in Django
@@ -699,36 +718,25 @@ assert "Jan. 1, 2024, 1:30 p.m." in result
 <!-- section-examples-end -->
 
 
+## Project Setup Instructions
+
+To get started, clone this repository and make sure you have [UV][uv] and [Just][just] installed. Then run
+`uv run_initial_setup` to set up the project. This command will create an `.env` file, virtual environment, install the
+required packages, and run the database migrations.
+
+
 ## Running the Tests
 
 Everything that was covered in this cheatsheet is based on the tests in the `tests/` directory. To run the 
-tests, run the following Just command:
+tests, run the `just test` command from the root of the project. This will run all the tests in the `tests/` directory.
 
-```bash
-just test
-```
-
-## Updating the README
-
-This README is automatically generated from the test files. If you make changes to the tests,
-you can update the README by running:
-
-```bash
-just update_readme
-```
-
-## See Dynamic Timezone Changes
-
-Run the following Just command to run the Django server:
-
-```bash
-just start
-```
 
 ## Contributing
 
-Contributions are welcome! If you have a datetime-related Django tip or trick that you'd like to add to this cheatsheet,
-please open a pull request.
+Contributions are welcome! If you find a mistake or have a datetime-related Django tip or trick that you'd like to add
+to this cheatsheet, please open a pull request. Just make sure that you run `just pre_commit` to format your code, run
+tests, and to update the README.md with any changes that were made to the tests.
+
 
 ## References
 

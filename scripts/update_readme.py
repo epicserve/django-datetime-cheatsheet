@@ -307,41 +307,115 @@ def generate_readme_content(github_repo_url=None):
     return content
 
 
+def extract_headings_from_content(content: str) -> list[tuple[int, str, str]]:
+    """
+    Extract headings from the content.
+
+    Returns a list of tuples (level, text, anchor) where:
+    - level is the heading level (1 for #, 2 for ##, etc.)
+    - text is the heading text
+    - anchor is the GitHub-style anchor for the heading
+    """
+    headings = []
+
+    # Regular expression to match Markdown headings
+    heading_pattern = re.compile(r"^(#{1,6})\s+(.+?)(?:\s+#{1,6})?$", re.MULTILINE)
+
+    for match in heading_pattern.finditer(content):
+        level = len(match.group(1))
+        text = match.group(2).strip()
+
+        # Create GitHub-style anchor: lowercase, replace spaces with hyphens, remove non-alphanumeric chars
+        anchor = text.lower()
+        anchor = re.sub(
+            r"[^\w\- ]", "", anchor
+        )  # Remove non-alphanumeric chars except spaces and hyphens
+        anchor = re.sub(r"\s+", "-", anchor)  # Replace spaces with hyphens
+
+        headings.append((level, text, anchor))
+
+    return headings
+
+
+def generate_table_of_contents(content: str) -> str:
+    """Generate a table of contents from the content."""
+    headings = extract_headings_from_content(content)
+
+    toc = "## Table of Contents\n\n"
+
+    for level, text, anchor in headings:
+        # Skip H1 headings (usually the title) and the TOC itself
+        if level == 1 or text == "Table of Contents":
+            continue
+
+        # Add indentation based on heading level
+        indent = "  " * (level - 2)
+        toc += f"{indent}- [{text}](#{anchor})\n"
+
+    return toc
+
+
 def update_readme(github_repo_url=None):
     """Update the README.md file with the generated content."""
     # Define the tags that will mark the start and end of the generated content
-    start_tag = "<!-- section-examples-start -->"
-    end_tag = "<!-- section-examples-end -->"
+    section_start_tag = "<!-- section-examples-start -->"
+    section_end_tag = "<!-- section-examples-end -->"
+    toc_start_tag = "<!-- toc-start -->"
+    toc_end_tag = "<!-- toc-end -->"
 
-    # Generate the content to insert between the tags
+    # Generate the content to insert between the section tags
     generated_content = generate_readme_content(github_repo_url)
 
     # Read the current README.md file
     current_content = README_PATH.read_text()
 
-    # Find the start and end tags in the current content
-    start_index = current_content.find(start_tag)
-    end_index = current_content.find(end_tag)
+    # Find the section tags in the current content
+    section_start_index = current_content.find(section_start_tag)
+    section_end_index = current_content.find(section_end_tag)
 
-    if start_index == -1 or end_index == -1:
+    if section_start_index == -1 or section_end_index == -1:
         print(
-            f"Error: Tags not found in {README_PATH}. Make sure the README.md contains the tags `{start_tag}` and `{end_tag}`."
+            f"Error: Section tags not found in {README_PATH}. Make sure the README.md contains the tags `{section_start_tag}` and `{section_end_tag}`."
         )
         exit(1)
+
+    # Replace the content between the section tags
+    new_content = (
+        current_content[: section_start_index + len(section_start_tag)]
+        + "\n"
+        + generated_content
+        + "\n"
+        + current_content[section_end_index:]
+    )
+
+    # Find the TOC tags in the updated content
+    toc_start_index = new_content.find(toc_start_tag)
+    toc_end_index = new_content.find(toc_end_tag)
+
+    if toc_start_index == -1 or toc_end_index == -1:
+        print(
+            f"Warning: TOC tags not found in {README_PATH}. Make sure the README.md contains the tags `{toc_start_tag}` and `{toc_end_tag}` to include a table of contents."
+        )
     else:
-        # Replace the content between the tags
+        # Generate the table of contents
+        toc_content = generate_table_of_contents(new_content)
+
+        # Replace the content between the TOC tags
         new_content = (
-            current_content[: start_index + len(start_tag)]
+            new_content[: toc_start_index + len(toc_start_tag)]
             + "\n"
-            + generated_content
+            + toc_content
             + "\n"
-            + current_content[end_index:]
+            + new_content[toc_end_index:]
         )
 
     # Write the updated content back to the file
     README_PATH.write_text(new_content)
 
-    print("Updated README.md with examples from tests.")
+    if toc_start_index == -1 or toc_end_index == -1:
+        print("Updated README.md with examples from tests.")
+    else:
+        print("Updated README.md with examples from tests and table of contents.")
 
 
 if __name__ == "__main__":
