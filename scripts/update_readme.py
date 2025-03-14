@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import os
+import inspect
 
 # Define the root directory of the project
 ROOT_DIR = Path(__file__).parent.parent
@@ -52,62 +53,44 @@ def extract_docstring(node: ast.AST) -> str | None:
     return None
 
 
-def extract_test_method_info(node: ast.FunctionDef) -> dict:
+def extract_test_method_info(node: ast.FunctionDef, file_content: str) -> dict:
     """Extract information from a test method."""
     docstring = extract_docstring(node)
-
-    # Extract code examples from the function body
-    code_examples = []
+    
+    # Get the source code of the entire method
+    start_lineno = node.lineno
+    end_lineno = 0
+    
+    # Find the end line number by looking at the last node in the function body
     for item in node.body:
-        if (
-            isinstance(item, ast.Expr)
-            and isinstance(item.value, ast.Constant)
-            and isinstance(item.value.value, str)
-        ):
-            # Skip docstrings
-            continue
-
-        # Extract various code elements as examples
-        if isinstance(item, ast.Assert):
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.Assign) and hasattr(item, "lineno"):
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.Expr) and hasattr(item, "lineno"):
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.With) and hasattr(item, "lineno"):
-            # Include context managers (with statements)
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.FunctionDef) and hasattr(item, "lineno"):
-            # Include function definitions
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.ClassDef) and hasattr(item, "lineno"):
-            # Include class definitions
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.If) and hasattr(item, "lineno"):
-            # Include if statements
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.For) and hasattr(item, "lineno"):
-            # Include for loops
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-        elif isinstance(item, ast.Try) and hasattr(item, "lineno"):
-            # Include try/except blocks
-            code_examples.append({"code": ast.unparse(item), "lineno": item.lineno})
-
+        if hasattr(item, 'end_lineno') and item.end_lineno > end_lineno:
+            end_lineno = item.end_lineno
+    
+    # If we couldn't determine the end line, use a reasonable default
+    if end_lineno == 0:
+        end_lineno = start_lineno + len(node.body) + 5  # Add some buffer
+    
+    # Extract the method source code from the file content
+    file_lines = file_content.splitlines()
+    method_source = "\n".join(file_lines[start_lineno-1:end_lineno])
+    
     return {
         "name": node.name,
         "docstring": docstring,
-        "code_examples": code_examples,
+        "source_code": method_source,
+        "start_line": start_lineno,
+        "end_line": end_lineno,
     }
 
 
-def extract_test_class_info(node: ast.ClassDef) -> dict:
+def extract_test_class_info(node: ast.ClassDef, file_content: str) -> dict:
     """Extract information from a test class."""
     docstring = extract_docstring(node)
     methods = []
 
     for item in node.body:
         if isinstance(item, ast.FunctionDef) and item.name.startswith("test_"):
-            methods.append(extract_test_method_info(item))
+            methods.append(extract_test_method_info(item, file_content))
 
     return {
         "name": node.name,
@@ -126,7 +109,7 @@ def parse_test_file(file_path: Path) -> list[dict]:
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name.startswith("Test"):
-            classes.append(extract_test_class_info(node))
+            classes.append(extract_test_class_info(node, content))
 
     return classes
 
@@ -159,67 +142,58 @@ def extract_comments_from_file(file_path: Path) -> dict[int, str]:
     return comments
 
 
-def clean_code_example(example: str) -> str:
-    """Clean up a code example for better readability."""
-    # Keep assert statements without adding comments
-    # We don't need to modify assert statements
-
-    # Add an empty line after class definitions
-    # This improves readability in the README
-    if example.strip().startswith("class "):
-        # Add an empty line after the class definition
-        example += "\n"
-
-    # Fix indentation
-    lines = example.split('\n')
-    if len(lines) > 1:
-        # Find the minimum indentation level (excluding empty lines)
+def clean_test_method_code(method_source: str) -> str:
+    """Clean up a test method for better readability in the README."""
+    # Remove the method definition line (def test_...)
+    lines = method_source.splitlines()
+    if lines and lines[0].strip().startswith("def test_"):
+        lines = lines[1:]
+    
+    # Remove docstring if present
+    if len(lines) >= 2 and (lines[0].strip().startswith('"""') or lines[0].strip().startswith("'''")):
+        # Find the end of the docstring
+        docstring_delimiter = '"""' if lines[0].strip().startswith('"""') else "'''"
+        docstring_end_idx = None
+        
+        # Handle single-line docstrings
+        if docstring_delimiter in lines[0][lines[0].find(docstring_delimiter) + 3:]:
+            docstring_end_idx = 0
+        else:
+            # Multi-line docstring
+            for i, line in enumerate(lines[1:], 1):
+                if docstring_delimiter in line:
+                    docstring_end_idx = i
+                    break
+        
+        if docstring_end_idx is not None:
+            lines = lines[docstring_end_idx + 1:]
+    
+    # Fix indentation (remove the method indentation)
+    if lines:
+        # Find the minimum indentation level
         min_indent = float('inf')
         for line in lines:
             if line.strip():  # Skip empty lines
                 indent = len(line) - len(line.lstrip())
                 min_indent = min(min_indent, indent)
         
-        # If there's excessive indentation, remove it
-        if min_indent > 4:
+        # Remove the common indentation
+        if min_indent < float('inf'):
             lines = [line[min_indent:] if line.strip() else line for line in lines]
-            example = '\n'.join(lines)
-
+    
     # Clean up self.render_str_template calls
-    example = re.sub(
+    code = "\n".join(lines)
+    code = re.sub(
         r"self\.render_str_template\((.*?), (.*?)\)",
         r"render_template(\1, \2)",
-        example,
+        code,
     )
-
-    # Clean up long string literals
-    example = re.sub(
-        r'""".*?"""',
-        lambda m: m.group(0).replace("\n", "\\n"),
-        example,
-        flags=re.DOTALL,
-    )
-    example = re.sub(
-        r"'''.*?'''",
-        lambda m: m.group(0).replace("\n", "\\n"),
-        example,
-        flags=re.DOTALL,
-    )
-
-    # Clean up long template strings
-    if "render_template(" in example and "\\n" in example:
-        # Simplify template strings in render_template calls
-        example = re.sub(
-            r'render_template\("(.*?)\\n.*?", (.*?)\)',
-            r'render_template("{{ ... }}", \2)',
-            example,
-        )
-
+    
     # Format the code using ruff
     try:
         # Create a temporary file with the code
         with tempfile.NamedTemporaryFile(mode='w+', suffix='.py', delete=False) as temp_file:
-            temp_file.write(example)
+            temp_file.write(code)
             temp_file_path = temp_file.name
 
         # Run ruff format on the temporary file
@@ -234,47 +208,22 @@ def clean_code_example(example: str) -> str:
 
         # Read the formatted code
         with open(temp_file_path, 'r') as temp_file:
-            formatted_example = temp_file.read()
+            formatted_code = temp_file.read()
 
         # Clean up the temporary file
         os.unlink(temp_file_path)
-
-        # Remove empty lines between consecutive assert statements
-        # Process the formatted code line by line to handle consecutive assert statements
-        lines = formatted_example.split('\n')
-        processed_lines = []
-        i = 0
-        while i < len(lines):
-            processed_lines.append(lines[i])
-            
-            # If this is an assert statement, check if the next non-empty line is also an assert
-            if lines[i].strip().startswith('assert'):
-                j = i + 1
-                # Skip empty lines
-                while j < len(lines) and not lines[j].strip():
-                    j += 1
-                
-                # If the next non-empty line is an assert, skip the empty lines
-                if j < len(lines) and lines[j].strip().startswith('assert'):
-                    i = j - 1  # Will be incremented to j in the next iteration
-                
-            i += 1
         
-        formatted_example = '\n'.join(processed_lines)
-
-        # Return the formatted code
-        return formatted_example
+        return formatted_code.strip()
     except Exception as e:
         print(f"Error formatting code with ruff: {e}")
-        # If there's an error, return the original example
-        return example
+        # If there's an error, return the original code
+        return code.strip()
 
 
 def generate_markdown_for_section(section_key: str, section_info: dict) -> str:
     """Generate markdown content for a section."""
     file_path = TESTS_DIR / section_info["file"]
     classes = parse_test_file(file_path)
-    comments = extract_comments_from_file(file_path)
 
     markdown = f"## {section_info['title']}\n\n"
     markdown += f"{section_info['description']}\n\n"
@@ -285,56 +234,12 @@ def generate_markdown_for_section(section_key: str, section_info: dict) -> str:
                 markdown += f"### {method['name'].replace('test_', '').replace('_', ' ').title()}\n\n"
                 markdown += f"{method['docstring']}\n\n"
 
-                # Add code examples
-                if method["code_examples"]:
-                    code_block = "```python\n"
-                    
-                    # Keep track of comments already added in this code block
-                    added_comments = set()
-                    previous_was_code = False
-                    
-                    for i, example in enumerate(method["code_examples"]):
-                        line_number = example["lineno"]
-                        
-                        # Check for comments in a range of lines before the code
-                        # Look for comments up to 3 lines before the code
-                        for j in range(line_number, max(0, line_number - 4), -1):
-                            if j in comments and j not in added_comments:
-                                # Add an empty line before comment if previous line was code
-                                if previous_was_code:
-                                    code_block += "\n"
-                                code_block += f"# {comments[j]}\n"
-                                added_comments.add(j)
-                                previous_was_code = False
-                                break
-                        
-                        # Clean up the example
-                        clean_example = clean_code_example(example["code"])
-                        
-                        # Add the code example
-                        code_block += f"{clean_example}"
-                        
-                        # Add a newline after the example, but only if it's not the last example
-                        if i < len(method["code_examples"]) - 1:
-                            code_block += "\n"
-                        
-                        previous_was_code = True
-                    
-                    # Add the closing code block marker without an extra newline
-                    code_block += "\n```\n\n"
-                    
-                    markdown += code_block
-
-    # Post-process the markdown to remove empty lines between consecutive assert statements
-    # Apply the regex substitution multiple times to catch all cases
-    prev_markdown = ""
-    while prev_markdown != markdown:
-        prev_markdown = markdown
-        markdown = re.sub(r'```python\n(.*?)(assert .*?)\n\n(assert .*?)```', r'```python\n\1\2\n\3```', markdown, flags=re.DOTALL)
-        markdown = re.sub(r'(assert .*?)\n\n(assert .*?)(\n\n|```)', r'\1\n\2\3', markdown, flags=re.DOTALL)
-
-    # Post-process the markdown to remove the extra line at the end of each code block
-    markdown = re.sub(r'\n\n```', r'\n```', markdown)
+                # Add the entire method as a code example
+                cleaned_code = clean_test_method_code(method["source_code"])
+                if cleaned_code:
+                    markdown += "```python\n"
+                    markdown += cleaned_code
+                    markdown += "\n```\n\n"
 
     return markdown
 
