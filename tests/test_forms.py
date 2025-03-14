@@ -113,7 +113,6 @@ class TestForms(TestCase):
 
         # Create a form with a datetime field
         class LocalEventTimeForm(forms.ModelForm):
-
             class Meta:
                 model = Event
                 fields = "__all__"
@@ -122,10 +121,14 @@ class TestForms(TestCase):
                 super().__init__(*args, **kwargs)
                 if self.instance is not None:
                     self.initial["start_time"] = formats.localize_input(
-                        dj_tz.localtime(event.start_time, ZoneInfo(self.instance.timezone))
+                        dj_tz.localtime(
+                            event.start_time, ZoneInfo(self.instance.timezone)
+                        )
                     )
                     self.initial["end_time"] = formats.localize_input(
-                        dj_tz.localtime(event.end_time, ZoneInfo(self.instance.timezone))
+                        dj_tz.localtime(
+                            event.end_time, ZoneInfo(self.instance.timezone)
+                        )
                     )
 
         # Initialize a form with the event
@@ -140,19 +143,26 @@ class TestForms(TestCase):
         assert 'value="2025-02-20 18:00:00"' in result
 
         # Also test rendering individual fields
-        start_time_result = self.render_str_template("{{ form.start_time }}", {"form": form})
-        end_time_result = self.render_str_template("{{ form.end_time }}", {"form": form})
+        start_time_result = self.render_str_template(
+            "{{ form.start_time }}", {"form": form}
+        )
+        end_time_result = self.render_str_template(
+            "{{ form.end_time }}", {"form": form}
+        )
 
         assert 'value="2025-02-20 17:00:00"' in start_time_result
         assert 'value="2025-02-20 18:00:00"' in end_time_result
 
         # Now make sure the form also renders the timezone field correctly when data is sumbitted.
-        form = LocalEventTimeForm(instance=event, data={
+        form = LocalEventTimeForm(
+            instance=event,
+            data={
                 "name": "Event Test",
                 "start_time": "2025-02-20 19:00:00",
                 "end_time": "2025-02-20 20:00:00",
                 "timezone": "America/Los_Angeles",
-            },)
+            },
+        )
         form.is_valid()
         result = self.render_str_template("{{ form }}", {"form": form})
 
