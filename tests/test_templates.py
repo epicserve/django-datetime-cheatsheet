@@ -28,7 +28,8 @@ class TestTemplateRendering(TestCase):
 
         The `date` filter can be used to format datetime objects in different ways.
         """
-        # Create a fixed datetime in UTC for demonstration purposes and a UTC that as a different day than localtime
+        # Create a fixed datetime in UTC for demonstration purposes.  When in UTC, this datetime
+        # has a different day (the 2nd) than it does in the local CST timezone (where it would be the 1st).
         utc_dt = datetime(2024, 1, 2, 0, 0, tzinfo=utc)
 
         # Render a datetime object using Django's default formatting for Django templates which is
