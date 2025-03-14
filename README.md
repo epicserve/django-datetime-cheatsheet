@@ -667,7 +667,7 @@ When working with models that have timezone-specific datetime fields,
 it's often useful to create methods that display the datetime in the
 model's timezone rather than the current timezone.
 
-<div align="right" style="margin-bottom: -10px;"><a href="https://github.com/epicserve/django-datetime-cheatsheet/tree/wip/tests/test_templates.py#L110-L133" title="View full example in source code" style="font-size: 0.8em; color: #5a5a5a; text-decoration: none;">📝 View full example</a></div>
+<div align="right" style="margin-bottom: -10px;"><a href="https://github.com/epicserve/django-datetime-cheatsheet/tree/wip/tests/test_templates.py#L110-L142" title="View full example in source code" style="font-size: 0.8em; color: #5a5a5a; text-decoration: none;">📝 View full example</a></div>
 
 ```python
 # Render a datetime object in a different timezone using the localtime template tag.
@@ -682,6 +682,15 @@ event.refresh_from_db()
 assert event.start_time.tzinfo == utc
 assert p_dt.tzinfo == ZoneInfo("America/Los_Angeles")
 
+# The following template will use the model's display_start_time method to render the start time. The method
+# converts the start_time to the model's timezone using the timezone field and then makes it naive, so that
+# Django's template engine doesn't convert it to the current timezone.
+#
+# Example of the display_start_time method:
+#
+#       def display_start_time(self):
+#           return timezone.make_naive(self.start_time, ZoneInfo(self.timezone))
+#
 result = self.render_str_template("{{ event.display_start_time }}", {"event": event})
 assert "Jan. 1, 2024, 1:30 p.m." in result
 ```

@@ -127,6 +127,15 @@ class TestTemplateRendering(TestCase):
         assert event.start_time.tzinfo == utc
         assert p_dt.tzinfo == ZoneInfo("America/Los_Angeles")
 
+        # The following template will use the model's display_start_time method to render the start time. The method
+        # converts the start_time to the model's timezone using the timezone field and then makes it naive, so that
+        # Django's template engine doesn't convert it to the current timezone.
+        #
+        # Example of the display_start_time method:
+        #
+        #       def display_start_time(self):
+        #           return timezone.make_naive(self.start_time, ZoneInfo(self.timezone))
+        #
         result = self.render_str_template(
             "{{ event.display_start_time }}", {"event": event}
         )
