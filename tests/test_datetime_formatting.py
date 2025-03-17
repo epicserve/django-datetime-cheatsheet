@@ -41,8 +41,10 @@ class TestDateTimeFormatting(TestCase):
         to format datetimes in the current timezone.
         """
 
-        def local_datetime_format(dt, df=settings.DATETIME_FORMAT):
-            return formats.date_format(dj_tz.localtime(dt), df)
+        def local_datetime_format(dt, df=settings.DATETIME_FORMAT, timezone=None):
+            if timezone is None:
+                timezone = dj_tz.get_default_timezone()
+            return formats.date_format(dj_tz.localtime(dt, timezone=timezone), df)
 
         # Create a fixed datetime in UTC for demonstration purposes
         utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
@@ -71,9 +73,11 @@ class TestDateTimeFormatting(TestCase):
         utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
 
         # Create even shorter functions
-        def local_short_datetime_format(dt):
+        def local_short_datetime_format(dt, timezone=None):
+            if timezone is None:
+                timezone = dj_tz.get_default_timezone()
             return formats.date_format(
-                dj_tz.localtime(dt), settings.SHORT_DATETIME_FORMAT
+                dj_tz.localtime(dt, timezone=timezone), settings.SHORT_DATETIME_FORMAT
             )
 
         assert local_short_datetime_format(utc_dt) == "10/01/2024 8:30 a.m."
