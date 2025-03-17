@@ -48,9 +48,10 @@ class TestDateTimeBasics(TestCase):
         utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
         assert utc_dt.tzinfo == utc
 
-        # Convert a UTC datetime to a local datetime object
+        # Convert a UTC datetime to a local datetime object. If you don't specify a timezone it will use the current timezone.
         local_dt = dj_tz.localtime(utc_dt)
         assert local_dt.tzinfo == ZoneInfo("America/Chicago")
+        assert local_dt.tzinfo == current_tz
 
         # Convert a local datetime object to a different timezone
         mountain_datetime = dj_tz.localtime(
@@ -103,7 +104,7 @@ class TestDateTimeBasics(TestCase):
         Combine a date object with a time object to create a datetime object. This is useful when you have separate
         date and time fields in a form and need to combine them into a single datetime object.
 
-        **Note:** Django's SplitDateTimeField can be used for this purpose in forms.
+        **Note:** Django's `SplitDateTimeField` can be used for this purpose in forms.
         """
         datetime_obj = dj_tz.make_aware(
             datetime.combine(date(2024, 1, 1), time(22, 30))

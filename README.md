@@ -84,9 +84,10 @@ assert dj_tz.is_aware(aware_datetime) is True
 utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
 assert utc_dt.tzinfo == utc
 
-# Convert a UTC datetime to a local datetime object
+# Convert a UTC datetime to a local datetime object. If you don't specify a timezone it will use the current timezone.
 local_dt = dj_tz.localtime(utc_dt)
 assert local_dt.tzinfo == ZoneInfo("America/Chicago")
+assert local_dt.tzinfo == current_tz
 
 # Convert a local datetime object to a different timezone
 mountain_datetime = dj_tz.localtime(local_dt, timezone=ZoneInfo("America/Denver"))
@@ -142,7 +143,7 @@ assert (
 Combine a date object with a time object to create a datetime object. This is useful when you have separate
 date and time fields in a form and need to combine them into a single datetime object.
 
-**Note:** Django's SplitDateTimeField can be used for this purpose in forms.
+**Note:** Django's `SplitDateTimeField` can be used for this purpose in forms.
 
 ```python
 datetime_obj = dj_tz.make_aware(datetime.combine(date(2024, 1, 1), time(22, 30)))
@@ -183,8 +184,10 @@ it's best to create a shortcut function to do this for you. Then you can use thi
 to format datetimes in the current timezone.
 
 ```python
-def local_datetime_format(dt, df=settings.DATETIME_FORMAT):
-    return formats.date_format(dj_tz.localtime(dt), df)
+def local_datetime_format(dt, df=settings.DATETIME_FORMAT, timezone=None):
+    if timezone is None:
+        timezone = dj_tz.get_default_timezone()
+    return formats.date_format(dj_tz.localtime(dt, timezone=timezone), df)
 
 
 # Create a fixed datetime in UTC for demonstration purposes
@@ -216,8 +219,12 @@ utc_dt = datetime(2024, 10, 1, 13, 30, tzinfo=utc)
 
 
 # Create even shorter functions
-def local_short_datetime_format(dt):
-    return formats.date_format(dj_tz.localtime(dt), settings.SHORT_DATETIME_FORMAT)
+def local_short_datetime_format(dt, timezone=None):
+    if timezone is None:
+        timezone = dj_tz.get_default_timezone()
+    return formats.date_format(
+        dj_tz.localtime(dt, timezone=timezone), settings.SHORT_DATETIME_FORMAT
+    )
 
 
 assert local_short_datetime_format(utc_dt) == "10/01/2024 8:30 a.m."
